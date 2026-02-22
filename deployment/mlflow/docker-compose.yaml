@@ -11,3 +11,4 @@ services:
       --backend-store-uri sqlite:///mlflow.db
       --default-artifact-root /tmp/mlruns
       --allowed-hosts '*'
+      --cors-allowed-origins '*'

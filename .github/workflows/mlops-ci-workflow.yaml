@@ -44,7 +44,7 @@ jobs:
           --cors-allowed-origins '*' \
 
       - name: Test MLflow connection
-         run: |
+        run: |
            curl -v http://52.90.43.59:5555
 
       - name: Run model training tests

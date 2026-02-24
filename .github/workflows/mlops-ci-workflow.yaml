@@ -45,7 +45,7 @@ jobs:
 
       - name: Test MLflow connection
          run: |
-           curl -v http://3.80.182.14:5555
+           curl -v http://52.90.43.59:5555
 
       - name: Run model training tests
         run: |
@@ -53,7 +53,7 @@ jobs:
           --config configs/model_config.yaml \
           --data data/processed/featured_house_data.csv \
           --models-dir models \
-          --mlflow-tracking-uri http://3.80.182.14:5555
+          --mlflow-tracking-uri http://52.90.43.59:5555
 
       - name: Cleanup Mlflow tracking server
         run: | 

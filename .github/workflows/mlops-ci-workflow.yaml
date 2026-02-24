@@ -37,8 +37,8 @@ jobs:
       - name: Setup Mlflow tracking server
         run: |
           docker pull ghcr.io/mlflow/mlflow:latest
-          docker run -d -p 5555:5000 --name mlflow-tracking-server ghcr.io/mlflow/mlflow:latest mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns 
-          --allowed-hosts '*'
+          docker run -d -p 5555:5000 --name mlflow-tracking-server ghcr.io/mlflow/mlflow:latest mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns \
+          --allowed-hosts '*' \
           --cors-allowed-origins '*'
 
       - name: Run model training tests

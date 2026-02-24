@@ -1,5 +1,4 @@
 name: Mlops CI
-
 on:
   push:
     branches: [main]
@@ -9,59 +8,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
-
+          python-version: '3.11.14'
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
       - name: Run data preprocessing tests
         run: |
           python src/data/run_processing.py \
           --input data/raw/house_data.csv \
           --output data/processed/cleaned_house_data.csv
-
+      
       - name: Run feature engineering tests
         run: |
           python src/features/engineer.py \
           --input data/processed/cleaned_house_data.csv \
           --output data/processed/featured_house_data.csv \
           --preprocessor models/trained/preprocessor.pkl
-
-      - name: Setup Mlflow tracking server
-        run: |
-          docker pull ghcr.io/mlflow/mlflow:latest
-          docker run -d -p 5555:5000 --name mlflow-tracking-server \
-          ghcr.io/mlflow/mlflow:latest \
-          mlflow server --host 0.0.0.0 --port 5000 \
-          --backend-store-uri sqlite:///mlflow.db \
-          --default-artifact-root ./mlruns
-
-      - name: Wait for MLflow
-        run: sleep 10
-
-      - name: Test MLflow connection
-        run: curl http://localhost:5555
-
       - name: Run model training tests
         run: |
           python src/models/train_model.py \
           --config configs/model_config.yaml \
           --data data/processed/featured_house_data.csv \
           --models-dir models \
-          --mlflow-tracking-uri http://localhost:5555
-
-      - name: Cleanup Mlflow tracking server
-        if: always()
-        run: |
-          docker stop mlflow-tracking-server || true
-          docker rm mlflow-tracking-server || true
+          --mlflow-tracking-uri http://52.90.43.59:5555

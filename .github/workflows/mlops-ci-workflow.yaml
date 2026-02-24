@@ -35,8 +35,8 @@ jobs:
           --preprocessor models/trained/preprocessor.pkl
       - name: Run model training tests
         run: |
-          --mlflow-tracking-uri http://52.90.43.59:5555\
           python src/models/train_model.py \
           --config configs/model_config.yaml \
           --data data/processed/featured_house_data.csv \
-          --models-dir models 
+          --models-dir models \
+          --mlflow-tracking-uri http://52.90.43.59:5555

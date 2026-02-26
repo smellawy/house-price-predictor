@@ -82,7 +82,7 @@ jobs:
           --config configs/model_config.yaml \
           --data data/processed/featured_house_data.csv \
           --models-dir models \
-          --mlflowtracking-uri http://18.206.229.66:5000
+          --mlflowtracking-uri http://18.206.229.66:5555
 
       - name: Upload trained model
         uses: actions/upload-artifact@v4
@@ -90,7 +90,7 @@ jobs:
           name: trained-model
           path: models/
 
-  Build-and-Publish-DockerHub:
+  Build-and-Publish:
     needs: model-training
     runs-on: ubuntu-latest
 

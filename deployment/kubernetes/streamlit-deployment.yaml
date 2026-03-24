@@ -1,0 +1,64 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streamlit-app
+  namespace: house-price-predictor
+  labels:
+    app: streamlit-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: streamlit-app
+  template:
+    metadata:
+      labels:
+        app: streamlit-app
+    spec:
+      containers:
+      - name: streamlit
+        image: mohamedadel9988/streamlit:dev
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8501
+          protocol: TCP
+        env:
+        - name: API_URL
+          value: http://api-service:8000
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 60
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: streamlit-app-lb
+  namespace: house-price-predictor
+  labels:
+    app: streamlit-app
+spec:
+  type: LoadBalancer
+  selector:
+    app: streamlit-app
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8501
+    protocol: TCP

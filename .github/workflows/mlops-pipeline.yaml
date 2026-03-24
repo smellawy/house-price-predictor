@@ -117,7 +117,7 @@ jobs:
           name: trained-model
           path: models/
 
-  Build-and-Publish:
+  Build-And-Publish:
     needs: model-training
     runs-on: ubuntu-latest
 

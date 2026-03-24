@@ -1,0 +1,326 @@
+---
+# Namespace for the application
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: house-price-predictor
+  labels:
+    app: house-price-predictor
+
+---
+# ConfigMap for API environment variables
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: house-price-predictor
+data:
+  MODEL_PATH: "/app/models"
+  LOG_LEVEL: "info"
+
+---
+# Model Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-service
+  namespace: house-price-predictor
+  labels:
+    app: model-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: model-service
+  template:
+    metadata:
+      labels:
+        app: model-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+      - name: model-service
+        image: mohamedadel9988/house-pricemodel:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        env:
+        - name: MODEL_PATH
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: MODEL_PATH
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: LOG_LEVEL
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        volumeMounts:
+        - name: model-storage
+          mountPath: /app/models
+      volumes:
+      - name: model-storage
+        emptyDir: {}
+      restartPolicy: Always
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - model-service
+              topologyKey: kubernetes.io/hostname
+
+---
+# Model Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-service
+  namespace: house-price-predictor
+  labels:
+    app: model-service
+spec:
+  type: ClusterIP
+  selector:
+    app: model-service
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+    protocol: TCP
+
+---
+# FastAPI Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-service
+  namespace: house-price-predictor
+  labels:
+    app: api-service
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-service
+  template:
+    metadata:
+      labels:
+        app: api-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+      - name: api-service
+        image: mohamedadel9988/fastapi:b89009d7291fcfc20f4ce57d8a9fb472472523eb
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        env:
+        - name: MODEL_SERVICE_URL
+          value: "http://model-service:8000"
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: LOG_LEVEL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+      restartPolicy: Always
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - api-service
+              topologyKey: kubernetes.io/hostname
+
+---
+# API Service (ClusterIP)
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: house-price-predictor
+  labels:
+    app: api-service
+spec:
+  type: ClusterIP
+  selector:
+    app: api-service
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+    protocol: TCP
+
+---
+# API Load Balancer Service (External Access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service-lb
+  namespace: house-price-predictor
+  labels:
+    app: api-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: api-service
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+
+---
+# HorizontalPodAutoscaler for Model Service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: model-service-hpa
+  namespace: house-price-predictor
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: model-service
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# HorizontalPodAutoscaler for API Service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-service-hpa
+  namespace: house-price-predictor
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-service
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# NetworkPolicy for restricting traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-to-model
+  namespace: house-price-predictor
+spec:
+  policyTypes:
+  - Ingress
+  - Egress
+  podSelector:
+    matchLabels:
+      app: model-service
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-service
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
